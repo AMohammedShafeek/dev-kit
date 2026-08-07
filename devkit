@@ -66,16 +66,16 @@ else
   SESSION="$(mktemp --suffix=.kitty)"
   cat > "$SESSION" <<EOF
 new_tab opencode
-cd "$FOLDER"
+cd $FOLDER
 launch opencode
 new_tab agy
-cd "$FOLDER"
+cd $FOLDER
 launch agy
 new_tab primary
-cd "$FOLDER"
+cd $FOLDER
 launch
 new_tab secondary
-cd "$FOLDER"
+cd $FOLDER
 launch
 EOF
 
