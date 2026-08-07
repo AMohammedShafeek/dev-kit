@@ -65,13 +65,17 @@ else
   rm -f "$SENTINEL"
   SESSION="$(mktemp --suffix=.kitty)"
   cat > "$SESSION" <<EOF
-new_tab --title opencode --cwd "$FOLDER"
+new_tab opencode
+cd "$FOLDER"
 launch opencode
-new_tab --title agy --cwd "$FOLDER"
+new_tab agy
+cd "$FOLDER"
 launch agy
-new_tab --title primary --cwd "$FOLDER"
+new_tab primary
+cd "$FOLDER"
 launch
-new_tab --title secondary --cwd "$FOLDER"
+new_tab secondary
+cd "$FOLDER"
 launch
 EOF
 
