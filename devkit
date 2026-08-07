@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE="${1:-$PWD}"
+BASE="$(cd "$BASE" && pwd)"
+
+mapfile -t DIRS < <(find "$BASE" -maxdepth 1 -mindepth 1 -type d | sort)
+
+if [[ ${#DIRS[@]} -eq 0 ]]; then
+  echo "No subfolders found in: $BASE"
+  exit 1
+fi
+
+echo "Folders in: $BASE"
+for i in "${!DIRS[@]}"; do
+  printf '%2d) %s\n' "$((i + 1))" "$(basename "${DIRS[$i]}")"
+done
+
+read -rp "Select folder [1-${#DIRS[@]}]: " choice
+if [[ ! "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#DIRS[@]} )); then
+  echo "Invalid selection."
+  exit 1
+fi
+
+FOLDER="${DIRS[$((choice - 1))]}"
+echo "Selected: $FOLDER"
+read -rp "Proceed? [y/N]: " confirm
+if [[ ! "$confirm" =~ ^[yY]$ ]]; then
+  echo "Cancelled."
+  exit 0
+fi
+
+REPO_URL="https://github.com"
+if REMOTE="$(git -C "$FOLDER" remote get-url origin 2>/dev/null)"; then
+  if [[ "$REMOTE" =~ ^git@([^:]+):(.*)\.git$ ]]; then
+    REPO_URL="https://${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+  elif [[ "$REMOTE" =~ ^https?:// ]]; then
+    REPO_URL="${REMOTE%.git}"
+  else
+    REPO_URL="$REMOTE"
+  fi
+fi
+
+SLUG="$(printf '%s' "$FOLDER" | md5sum | cut -c1-12)"
+SENTINEL="/tmp/devkit-$SLUG.kitty"
+KITTY_PID="$(cat "$SENTINEL" 2>/dev/null || true)"
+
+code "$FOLDER"
+
+if pgrep -x firefox >/dev/null 2>&1; then
+  echo "Firefox already running — skipped tabs"
+else
+  firefox --new-tab "https://web.whatsapp.com" --new-tab "$REPO_URL" >/dev/null 2>&1 & disown
+fi
+
+if pgrep -x bruno >/dev/null 2>&1; then
+  echo "Bruno already running — skipped"
+else
+  bruno >/dev/null 2>&1 & disown
+fi
+
+if [[ -n "$KITTY_PID" ]] && kill -0 "$KITTY_PID" 2>/dev/null; then
+  echo "kitty already open for $(basename "$FOLDER") — skipped"
+else
+  rm -f "$SENTINEL"
+  SESSION="$(mktemp --suffix=.kitty)"
+  cat > "$SESSION" <<EOF
+new_tab --title opencode --cwd "$FOLDER"
+launch opencode
+new_tab --title agy --cwd "$FOLDER"
+launch agy
+new_tab --title primary --cwd "$FOLDER"
+launch
+new_tab --title secondary --cwd "$FOLDER"
+launch
+EOF
+
+  kitty --session "$SESSION" >/dev/null 2>&1 &
+  KITTY_PID=$!
+  disown
+  echo "$KITTY_PID" > "$SENTINEL"
+  ( sleep 5; rm -f "$SESSION" ) & disown
+fi
+
+echo "Done for: $(basename "$FOLDER")"
